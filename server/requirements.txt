@@ -1,0 +1,9 @@
+flask
+docker
+flask_pymongo
+flask_cors
+flask_socketio
+gunicorn
+gevent
+gevent-websocket
+kubernetes
