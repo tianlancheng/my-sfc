@@ -381,14 +381,30 @@ class MySffServer(BasicService):
         :return dict or hex
 
         """
-        next_hop = SERVICE_HOP_INVALID
+        next_hop = None
 
         # First we determine the list of SFs in the received packet based on
         # SPI value extracted from packet
         try:
-            local_data_plane_path = sfc_globals.get_data_plane_path()
-            next_hop = local_data_plane_path[service_path][service_index]
-        
+            # local_data_plane_path = sfc_globals.get_data_plane_path()
+            # next_hop = local_data_plane_path[service_path][service_index]
+            next_hops = sfc_globals.get_next_hops()
+            # logger.info('next_hops:'+str(service_path))
+            # logger.info(next_hops)
+            next_instances = next_hops[str(service_path)]    
+            if next_instances == None:
+                return SERVICE_HOP_INVALID
+
+            minRemain = 10000000
+            index = -1
+            for i in range(0,len(next_instances)):
+                if next_instances[i]['remainPackets'] < minRemain:
+                    minRemain = next_instances[i]['remainPackets']
+                    index =i
+
+            if index != -1:
+                next_hop = {'ip':next_instances[index]['ip'],'port':6000}
+            
         except KeyError:
             # logger.error('Could not determine next service hop. SP: %d, SI: %d',
             #             service_path, service_index)
@@ -458,6 +474,15 @@ class MySffServer(BasicService):
             sfc_globals.sf_processed_packets += 1
         else:
             next_hop = {'ip':'127.0.0.1','port':6001}
+
+        if next_hop == None:
+            logger.error("not find an available next hop")
+            return rw_data, address
+
+        if self.server_base_values.service_index<0:
+            logger.error("hops over 255")
+            return rw_data, address
+
         if nsh_decode.is_data_message(data):
             # send the packet to the next SFF based on address
             if next_hop != SERVICE_HOP_INVALID:

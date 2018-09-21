@@ -100,22 +100,25 @@ def start_pod(data):
   container1=client.V1Container(name="sff",image="sff:latest")
   container1.args=[app.config['SERVER'], data['_id'], instanceId]
   container1.image_pull_policy='IfNotPresent'
-  container2=client.V1Container(name=data['_id'],image=data['image'])
+  container2=client.V1Container(name='sf',image=data['image'])
   container2.image_pull_policy='IfNotPresent'
   containers = [container1,container2]
 
   spec=client.V1PodSpec(containers=containers)
   pod.spec = spec
-  print(pod)
   v1.create_namespaced_pod(namespace="default",body=pod)
   mongo.db.sf_instance_set.insert(record)
 
 @app.route('/api/SF/<_id>',methods=['DELETE'])
 def delete_sf(_id):
-  instances = mongo.db.sf_instance_set.find({'sfId':_id})
+  sf_instance_set = mongo.db.sf_instance_set
+  instances = sf_instance_set.find({'sfId': _id})
   for instance in instances:
-    v1.delete_namespaced_pod(name=instance['_id'], namespace="default", body=client.V1DeleteOptions())
-  mongo.db.sf_instance_set.remove({'sfId':_id})
+    try:
+      v1.delete_namespaced_pod(name=instance['_id'], namespace="default", body=client.V1DeleteOptions())
+    except:
+      pass
+  sf_instance_set.remove({'sfId':_id})
   mongo.db.sf_set.remove({'_id':_id})
   return jsonify(status=200, msg='success', data=None), 200
 
@@ -178,7 +181,7 @@ def add_sfc():
       }
       records.append(record)
     sfc_set.insert_many(records)
-  return jsonify(status=200, msg='success', data=None), 200
+  return jsonify(status=200, msg='success', data={id:sfc_id}), 200
 
 @app.route('/api/SFC/<id>',methods=['DELETE'])
 def delete_sfc(id):
@@ -209,11 +212,16 @@ def heartbeat():
   instanceId = data.pop('instanceId')
   sf_instance_set.update({"_id": instanceId},{"$set":data})
 
-  nextSFs = list(mongo.db.sfc_set.find({'present':data['sfId']}))
-  for nextSF in nextSFs:
-    instances = list(sf_instance_set.find({'sfId': nextSF['next'], 'status':'running', 'stop': False}))
-    nextSF['instances'] = instances
-  return jsonify(status=200, msg='success', data=nextSFs), 200
+  next_hops={}
+  SFCs = list(mongo.db.sfc_set.find({'present':data['sfId']}))
+  for sfc in SFCs:
+    if sfc['next'] == None:
+      instances = None
+    else:
+      instances = list(sf_instance_set.find({'sfId': sfc['next'], 'status':'running', 'stop': False}))
+    next_hops[sfc['id']] = instances
+  # print(next_hops)
+  return jsonify(status=200, msg='success', data=next_hops), 200
 
 @socketio.on('connect', namespace='/socket/client')
 def client_connect():

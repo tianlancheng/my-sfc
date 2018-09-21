@@ -68,10 +68,13 @@ def heartbeat(odl_ip_port):
             "remainPackets": queued_packets-2*processed_packets,
             "speed": speed
         }
-        logger.info(data)
+        # logger.info(data)
         try:
             r=requests.post('http://'+odl_ip_port+'/api/heartbeat',data = json.dumps(data))
-            logger.info(r.text)    
+            # logger.info(r.text)
+            r=r.json()
+            next_hops = r['data']
+            sfc_globals.set_next_hops(next_hops)
         except:
             logger.info('send error')
         time.sleep(5)
@@ -94,5 +97,5 @@ if __name__ == "__main__":
     logger.info('sfId: %s', sfc_globals.get_sf_id())
     logger.info('instanceId: %s', sfc_globals.get_instance_id())
 
-    # start('sff')
+    start('sff')
     heartbeat(sfc_globals.get_odl_locator())

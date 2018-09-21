@@ -68,6 +68,7 @@ class SfcGlobals:
     """
     sf_id = ""
     instance_id = ""
+    next_hops={}
 
     sff_os = "ODL"
     my_sff_name = None
@@ -113,6 +114,12 @@ class SfcGlobals:
 
     def set_instance_id(self, instance_id):
         self.instance_id = instance_id
+
+    def get_next_hops(self):
+        return self.next_hops
+
+    def set_next_hops(self, next_hops):
+        self.next_hops = next_hops
 
     def get_path(self):
         return self.path
