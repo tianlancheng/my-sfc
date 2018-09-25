@@ -1,0 +1,1 @@
+{"service-function-paths": {"service-function-path": [{"name": "SFC1-SFP1", "path-id": 1, "symmetric": true, "service-chain-name": "SFC1"}]}}

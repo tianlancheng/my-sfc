@@ -1,0 +1,1 @@
+{"service-function": [{"sf-data-plane-locator": [{"ip": "192.168.43.22", "port": 40000, "service-function-forwarder": "SFF1", "name": "vxlan", "transport": "service-locator:vxlan-gpe"}], "name": "SF1", "nsh-aware": true, "type": "service-function-type:dpi", "rest-uri": "http://192.168.43.22:5000", "ip-mgmt-address": "192.168.43.22"}]}

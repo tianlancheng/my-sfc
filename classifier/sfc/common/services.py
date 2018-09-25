@@ -226,11 +226,10 @@ class BasicService(object):
             logger.info(msg)
             logger.exception(msg)
 
-        if self.service_type == 'SFF Server':
-            sfc_globals.sff_queued_packets += 1  
-        else:
+        if self.service_type == DPI:
             sfc_globals.sf_queued_packets += 1
-            
+        else:
+            sfc_globals.sff_queued_packets += 1
 
     def process_datagram(self, data, addr):
         """
@@ -381,31 +380,14 @@ class MySffServer(BasicService):
         :return dict or hex
 
         """
-        next_hop = None
+        next_hop = SERVICE_HOP_INVALID
 
         # First we determine the list of SFs in the received packet based on
         # SPI value extracted from packet
         try:
-            # local_data_plane_path = sfc_globals.get_data_plane_path()
-            # next_hop = local_data_plane_path[service_path][service_index]
-            next_hops = sfc_globals.get_next_hops()
-            # logger.info('next_hops:'+str(service_path))
-            # logger.info(next_hops)
-            next_instances = next_hops[str(service_path)]    
-            if next_instances == None:
-                return SERVICE_HOP_INVALID
-
-            minRemain = 10000000
-            index = -1
-            for i in range(0,len(next_instances)):
-                if next_instances[i]['remainPackets'] < minRemain:
-                    minRemain = next_instances[i]['remainPackets']
-                    index =i
-
-            if index != -1:
-                next_hop = {'ip':next_instances[index]['ip'],'port':6000}
-                next_instances[index]['remainPackets'] = next_instances[index]['remainPackets']+1
-            
+            local_data_plane_path = sfc_globals.get_data_plane_path()
+            next_hop = local_data_plane_path[service_path][service_index]
+        
         except KeyError:
             # logger.error('Could not determine next service hop. SP: %d, SI: %d',
             #             service_path, service_index)
@@ -463,27 +445,18 @@ class MySffServer(BasicService):
         """
         logger.info("%s: mysff Processing packet from: %s", self.service_type, addr)
         address = ()
+        print(self.server_base_values.service_path,self.server_base_values.service_index)
         rw_data = bytearray(data)
         self._decode_headers(data)
 
         sfc_globals.sff_processed_packets += 1
         # logger.info('*******(mysff server) received packets "%d"', sfc_globals.received_packets)
-        if(addr[0] == '127.0.0.1' and addr[1] == 6001):
-            # Lookup what to do with the packet based on Service Path Identifier
-            next_hop = self._lookup_next_sf(self.server_base_values.service_path,
-                                            self.server_base_values.service_index)
-            sfc_globals.sf_processed_packets += 1
-        else:
-            next_hop = {'ip':'127.0.0.1','port':6001}
 
-        if next_hop == None:
-            logger.error("not find an available next hop")
-            return rw_data, address
-
-        if self.server_base_values.service_index<0:
-            logger.error("hops over 255")
-            return rw_data, address
-
+        # Lookup what to do with the packet based on Service Path Identifier
+        print(self.server_base_values.service_path,self.server_base_values.service_index)
+        next_hop = self._lookup_next_sf(self.server_base_values.service_path,
+                                        self.server_base_values.service_index)
+        print("next_hop:",next_hop)
         if nsh_decode.is_data_message(data):
             # send the packet to the next SFF based on address
             if next_hop != SERVICE_HOP_INVALID:

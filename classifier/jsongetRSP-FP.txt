@@ -1,0 +1,1 @@
+{"output": {"rendered-service-path-first-hop": {"port": 30001, "ip": "127.0.0.1", "path-id": 1, "transport-type": "service-locator:vxlan-gpe", "starting-index": 255}}}

@@ -63,7 +63,7 @@ def add_sf():
   if sf_set.find_one({'_id':data['_id']}):
     return jsonify(status=400, msg='sf already exist', data=None), 400
   sf_set.insert(data)
-  start_pod(data)
+  start_sf_pod(data)
   return jsonify(status=200, msg='success', data=None), 200
 
 @app.route('/api/scaleUp',methods=['POST'])
@@ -71,7 +71,7 @@ def scale_up():
   data = json.loads(request.get_data().decode('utf-8'));
   if not mongo.db.sf_set.find_one({'_id':data['_id']}):
     return jsonify(status=400, msg='no this sf', data=None), 400
-  start_pod(data)
+  start_sf_pod(data)
   return jsonify(status=200, msg='success', data=None), 200
 
 @app.route('/api/scaleDown',methods=['POST'])
@@ -84,7 +84,7 @@ def scale_down():
   sf_instance_set.update_one({'sfId': data['sfId']},{'$set':{'stop': True}})
   return jsonify(status=200, msg='success', data=None), 200
 
-def start_pod(data):
+def start_sf_pod(data):
   instanceId = str(uuid.uuid1()).replace('-', '')
   record={
     '_id': instanceId,
@@ -202,6 +202,26 @@ def get_sfcs():
   sfcs = list(sfc_set.aggregate([{'$group':{'_id':'$id','sfs':{'$push':'$present'}}}]))
   return jsonify(status=200, msg='success', data=sfcs), 200
 
+@app.route('/api/acl',methods=['POST'])
+def add_acl():
+  data = json.loads(request.get_data().decode('utf-8'));
+  acl_set = mongo.db.acl_set
+  if acl_set.find_one({'rspId':data['rspId']}):
+    return jsonify(status=400, msg='rspId already exist', data=None), 400
+  data['_id'] = str(uuid.uuid1()).replace('-', '')
+  data['action'] = 'create'
+  acl_set.insert(data)
+  return jsonify(status=200, msg='success', data=None), 200
+
+@app.route('/api/acl',methods=['DELETE'])
+def delete_acl():
+  data = json.loads(request.get_data().decode('utf-8'));
+  acl_set = mongo.db.acl_set
+  if not acl_set.find_one({'rspId':data['rspId']}):
+    return jsonify(status=400, msg='rspId does not exist', data=None), 400
+  acl_set.update({'respId': data['rspId']},{'$set':{'action': 'delete'}})
+  return jsonify(status=200, msg='success', data=None), 200
+
 @app.route('/api/heartbeat',methods=['POST'])
 def heartbeat():
   data = json.loads(request.get_data().decode('utf-8'));
@@ -213,14 +233,20 @@ def heartbeat():
   sf_instance_set.update({"_id": instanceId},{"$set":data})
 
   next_hops={}
-  SFCs = list(mongo.db.sfc_set.find({'present':data['sfId']}))
-  for sfc in SFCs:
-    if sfc['next'] == None:
-      instances = None
-    else:
-      instances = list(sf_instance_set.find({'sfId': sfc['next'], 'status':'running', 'stop': False}))
-    next_hops[sfc['id']] = instances
-  # print(next_hops)
+  if data.get('type') == 'dispatcher':
+    SFCs = list(mongo.db.sfc_set.find({'order':1}))
+    for sfc in SFCs:
+      instances = list(sf_instance_set.find({'sfId': sfc['present'], 'status':'running', 'stop': False}))
+      next_hops[sfc['id']] = instances
+  else:
+    SFCs = list(mongo.db.sfc_set.find({'present':data['sfId']}))
+    for sfc in SFCs:
+      if sfc['next'] == None:
+        instances = None
+      else:
+        instances = list(sf_instance_set.find({'sfId': sfc['next'], 'status':'running', 'stop': False}))
+      next_hops[sfc['id']] = instances
+  print(next_hops)
   return jsonify(status=200, msg='success', data=next_hops), 200
 
 @socketio.on('connect', namespace='/socket/client')
@@ -232,6 +258,35 @@ def client_disconnect():
     logger.info('client disconnected:'+request.sid)
 
 
+def start_dispatcher_pod():
+  instanceId = str(uuid.uuid1()).replace('-', '')
+  record={
+    '_id': instanceId,
+    'sfId': 'dispatcher',
+    'status': 'created',
+    'time': time.time(),
+    'stop': False
+  }
+
+  pod=client.V1Pod(api_version='v1',kind='Pod')
+  pod.metadata=client.V1ObjectMeta(name=instanceId,labels={'type':'dispatcher'})
+
+  container1=client.V1Container(name="dispatcher",image="dispatcher:latest")
+  container1.args=[app.config['SERVER'], record['sfId'], instanceId]
+  container1.image_pull_policy='IfNotPresent'
+  container1.ports = [client.V1ContainerPort(container_port = 6000, host_port=6000, protocol='UDP')]
+  containers = [container1]
+
+  spec=client.V1PodSpec(containers=containers)
+  pod.spec = spec
+  v1.create_namespaced_pod(namespace="default",body=pod)
+  mongo.db.sf_instance_set.remove({'sfId':'dispatcher'})
+  mongo.db.sf_instance_set.insert(record)
+
 if __name__ == '__main__':
+    ret = v1.list_pod_for_all_namespaces(watch=False,label_selector='type=dispatcher')
+    if not ret.items:
+      print('start dispatcher')
+      start_dispatcher_pod()
     app.run(host='0.0.0.0',port=5000,debug=False,threaded=True)
     # socketio.run(app)

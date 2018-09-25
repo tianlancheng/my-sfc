@@ -468,21 +468,17 @@ class MySffServer(BasicService):
 
         sfc_globals.sff_processed_packets += 1
         # logger.info('*******(mysff server) received packets "%d"', sfc_globals.received_packets)
-        if(addr[0] == '127.0.0.1' and addr[1] == 6001):
-            # Lookup what to do with the packet based on Service Path Identifier
-            next_hop = self._lookup_next_sf(self.server_base_values.service_path,
-                                            self.server_base_values.service_index)
-            sfc_globals.sf_processed_packets += 1
-        else:
-            next_hop = {'ip':'127.0.0.1','port':6001}
+
+        # Lookup what to do with the packet based on Service Path Identifier
+        next_hop = self._lookup_next_sf(self.server_base_values.service_path,
+                                        self.server_base_values.service_index)
+        sfc_globals.sf_processed_packets += 1
+
 
         if next_hop == None:
             logger.error("not find an available next hop")
             return rw_data, address
 
-        if self.server_base_values.service_index<0:
-            logger.error("hops over 255")
-            return rw_data, address
 
         if nsh_decode.is_data_message(data):
             # send the packet to the next SFF based on address

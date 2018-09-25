@@ -1,0 +1,1 @@
+{"access-list": [{"access-list-entries": [{"actions": {"service-function-acl:rendered-service-path": "SFC1-SFP1-Path-1"}, "matches": {"source-port-range": {"upper-port": 20000, "lower-port": 15000}, "source-ipv4-address": "127.0.0.1/0", "destination-ipv4-address": "127.0.0.1/0", "ip-protocol": 17}, "rule-name": "ACE1"}], "acl-name": "ACL1"}]}
