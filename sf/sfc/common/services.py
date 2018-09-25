@@ -149,8 +149,7 @@ class BasicService(object):
         :type addr: tuple
 
         """
-        logger.info('%s: Processing received packet(basicservice) service name :%s',
-        self.service_type, self.service_name)
+        logger.info('Processing received packet')
 
         self._decode_headers(data)
 
@@ -241,11 +240,11 @@ class BasicService(object):
         :type addr: tuple
 
         """
-        logger.info('%s service received packet from %s:', self.service_type, addr)
+        logger.info('sf service received packet from %s:', addr)
         # logger.debug('%s %s', addr, binascii.hexlify(data))
         rw_data = self._process_incoming_packet(data, addr)
         if nsh_decode.is_data_message(data):
-            logger.info('%s: Sending packets to %s', self.service_type, addr)
+            logger.info('sf Sending packets to %s', addr)
             if nsh_decode.is_vxlan_nsh_legacy_message(data):
                 # Disregard source port of received packet and send packet back to 6633
                 addr_l = list(addr)

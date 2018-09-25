@@ -85,7 +85,7 @@ def scale_down():
   return jsonify(status=200, msg='success', data=None), 200
 
 def start_sf_pod(data):
-  instanceId = str(uuid.uuid1()).replace('-', '')
+  instanceId = str(uuid.uuid1()).replace('-', '')[:12]
   record={
     '_id': instanceId,
     'sfId': data['_id'],
@@ -95,7 +95,7 @@ def start_sf_pod(data):
   }
 
   pod=client.V1Pod(api_version='v1',kind='Pod')
-  pod.metadata=client.V1ObjectMeta(name=instanceId)
+  pod.metadata=client.V1ObjectMeta(name=data['_id']+'-'+instanceId)
 
   container1=client.V1Container(name="sff",image="sff:latest")
   container1.args=[app.config['SERVER'], data['_id'], instanceId]
@@ -115,7 +115,7 @@ def delete_sf(_id):
   instances = sf_instance_set.find({'sfId': _id})
   for instance in instances:
     try:
-      v1.delete_namespaced_pod(name=instance['_id'], namespace="default", body=client.V1DeleteOptions())
+      v1.delete_namespaced_pod(name=_id+'-'+instance['_id'], namespace="default", body=client.V1DeleteOptions())
     except:
       pass
   sf_instance_set.remove({'sfId':_id})
@@ -172,7 +172,7 @@ def add_sfc():
       else:
         next = None
       record={
-        '_id': str(uuid.uuid1()).replace('-', ''),
+        '_id': str(uuid.uuid1()).replace('-', '')[:12],
         'id': sfc_id,
         'name': data['name'],
         'order': i+1,
@@ -246,7 +246,7 @@ def heartbeat():
       else:
         instances = list(sf_instance_set.find({'sfId': sfc['next'], 'status':'running', 'stop': False}))
       next_hops[sfc['id']] = instances
-  print(next_hops)
+  # print(next_hops)
   return jsonify(status=200, msg='success', data=next_hops), 200
 
 @socketio.on('connect', namespace='/socket/client')
@@ -259,7 +259,7 @@ def client_disconnect():
 
 
 def start_dispatcher_pod():
-  instanceId = str(uuid.uuid1()).replace('-', '')
+  instanceId = str(uuid.uuid1()).replace('-', '')[:12]
   record={
     '_id': instanceId,
     'sfId': 'dispatcher',
@@ -269,7 +269,7 @@ def start_dispatcher_pod():
   }
 
   pod=client.V1Pod(api_version='v1',kind='Pod')
-  pod.metadata=client.V1ObjectMeta(name=instanceId,labels={'type':'dispatcher'})
+  pod.metadata=client.V1ObjectMeta(name=record['sfId']+'-'+instanceId,labels={'type':'dispatcher'})
 
   container1=client.V1Container(name="dispatcher",image="dispatcher:latest")
   container1.args=[app.config['SERVER'], record['sfId'], instanceId]

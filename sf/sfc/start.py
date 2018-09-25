@@ -12,7 +12,7 @@ from sfc.common.launcher import start_sf
 
 
 def start():
-    start_sf('firewall1', '0.0.0.0', 6001, 'firewall')
+    start_sf('firewall', '0.0.0.0', 6001, 'firewall')
 
 if __name__ == "__main__":
     start()

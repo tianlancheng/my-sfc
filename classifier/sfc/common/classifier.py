@@ -1,4 +1,4 @@
-# flake8: noqa
+﻿# flake8: noqa
 #
 # Copyright (c) 2015 Cisco Systems, Inc. and others. All rights reserved.
 #
@@ -16,22 +16,15 @@ import ipaddress
 import threading
 import subprocess
 import queue
+# -*- coding: utf-8 -*-：
 from time import sleep
+import copy
 
 from ..nsh.encode import build_nsh_eth_header, build_nsh_header
 from ..common.sfc_globals import sfc_globals
 from ..nsh.common import (VXLANGPE, VXLAN, GREHEADER, BASEHEADER, CONTEXTHEADER, ETHHEADER,
                           VXLAN_NEXT_PROTO_NSH)
 from _socket import IPV6_V6ONLY
-
-
-
-
-__author__ = 'Martin Lauko, Dusan Madar'
-__email__ = "martin.lauko@pantheon.sk, madar.dusan@gmail.com"
-__copyright__ = "Copyright(c) 2015, Cisco Systems, Inc."
-__version__ = "0.1"
-__status__ = "alpha"
 
 
 """
@@ -258,7 +251,7 @@ class NfqClassifier(metaclass=Singleton):
     def _set_rsp(self,rsp):
         self.rsp = rsp
 
-    def _get_accessLists():
+    def _get_accessLists(self):
         return self.accessLists
 
     def _get_current_ip_version(self, ip):
@@ -358,9 +351,9 @@ class NfqClassifier(metaclass=Singleton):
         #     sfc_globals.not_processed_packets += 1
         #     return
 
-        # if rsp_id not in self.accessLists:
-        #     sfc_globals.not_processed_packets += 1
-        #     return
+        if rsp_id not in self.accessLists:
+            sfc_globals.not_processed_packets += 1
+            return
 
         # instances = self.rsp[rsp_id]
         # minRemain = 10000000
@@ -380,7 +373,7 @@ class NfqClassifier(metaclass=Singleton):
         
         # fwd_to = {'ip':instances[index]['ip'],'port':6000,'starting-index':255}
 
-        fwd_to = {'ip':'127.0.0.1','port':6000,'starting-index':255, 'transport-type': 'service-locator:vxlan-gpe',}
+        fwd_to = {'ip':'192.168.43.165','port':6000,'starting-index':255, 'transport-type': 'service-locator:vxlan-gpe',}
 
         next_protocol = ipv_2_next_protocol[ipv]
         
@@ -469,7 +462,7 @@ class NfqClassifier(metaclass=Singleton):
         """
 
         try:
-            print("dd:receive a packet")
+            logger.info("dd:receive a packet")
             in_pckt_queue.put_nowait(packet)
             packet.drop()
             sfc_globals.processed_packets += 1
@@ -651,12 +644,12 @@ class NfqClassifier(metaclass=Singleton):
                                    self.rsp_ace,
                                    'RSP',
                                    str(self.rsp_id)))
-
+            matches = copy.deepcopy(ace['matches'])
             # `self.rsp_ipv` and `self.rsp_mark` are set by this
             ace_rule_cmd = self.parse_ace(ace['matches'])
             self.register_rsp()
             run_iptables_cmd(ace_rule_cmd, self.rsp_ipv)
-            self.accessLists[rspId] = {'name':self.rsp_chain,'ipv':self.rsp_ipv,'matches':ace}
+            self.accessLists[rspId] = {'name':self.rsp_chain,'ipv':self.rsp_ipv,'matches':matches}
 
     def register_rsp(self):
         """
@@ -782,11 +775,6 @@ def clear_classifier():
     if nfq_classifier.nfq_running():
         # TODO: logging exceptions ocures (sometimes) -> debug
         nfq_classifier.remove_acl_rsps()
-        logger.debug('******************Processed packets "%d"***************', sfc_globals.processed_packets)
-        logger.debug('******************Sent packets "%d"***************', sfc_globals.sent_packets)
-        
-    logger.debug('******************SF processed packets "%d"***************', sfc_globals.sf_processed_packets)
-    logger.debug('******************SFF processed packets "%d"***************', sfc_globals.sff_processed_packets)
-    logger.debug('******************SF queued packets "%d"***************', sfc_globals.sf_queued_packets)
-    logger.debug('******************SFf queued packets "%d"***************', sfc_globals.sff_queued_packets)
+        logger.debug('******************Classifier Processed packets "%d"***************', sfc_globals.processed_packets)
+        logger.debug('******************Classifier Sent packets "%d"***************', sfc_globals.sent_packets)
     logger.debug('******************Not processed packets "%d"***************', sfc_globals.not_processed_packets)

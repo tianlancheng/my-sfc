@@ -534,12 +534,14 @@ class MySffServer(BasicService):
                     sock_raw = None
 
                     try:
-                        if platform.system() == "Darwin":
-                            # Assuming IPv4 packet for now. Move pointer forward
-                            inner_packet = rw_data[payload_start_index + IPV4_HEADER_LEN_BYTES:]
-                            sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP)
-                        else:
-                            sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+                        # if platform.system() == "Darwin":
+                        #     # Assuming IPv4 packet for now. Move pointer forward
+                        #     inner_packet = rw_data[payload_start_index + IPV4_HEADER_LEN_BYTES:]
+                        #     sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP)
+                        # else:
+                        #     sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
+                        sock_raw = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+                        # sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
                     except socket.error as msg:
                         logger.error("Socket could not be created. Error Code : {}", msg)
                         sys.exit()
