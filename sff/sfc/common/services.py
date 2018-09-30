@@ -367,6 +367,9 @@ class MySffServer(BasicService):
         super(MySffServer, self).__init__(loop)
 
         self.service_type = 'SFF Server'
+        
+        self.sock_raw = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        # self.sock_raw.bind(("",17000))
 
     @staticmethod
     def _lookup_next_sf(service_path, service_index):
@@ -515,12 +518,12 @@ class MySffServer(BasicService):
                 inner_packet = rw_data[payload_start_index:]
 
                 if inner_packet:
-                    euid = os.geteuid()
-                    if euid != 0:
-                        print("Script not started as root. Running sudo...")
-                        args = ['sudo', sys.executable] + sys.argv + [os.environ]
-                        # the next line replaces the currently-running process with the sudo
-                        os.execlpe('sudo', *args)
+                    # euid = os.geteuid()
+                    # if euid != 0:
+                    #     print("Script not started as root. Running sudo...")
+                    #     args = ['sudo', sys.executable] + sys.argv + [os.environ]
+                    #     # the next line replaces the currently-running process with the sudo
+                    #     os.execlpe('sudo', *args)
 
                     # Reinaldo note:
                     # Unfortunately it has to be this way. Python has poor raw socket support in
@@ -531,24 +534,23 @@ class MySffServer(BasicService):
                     # But if you try to set this option at the Python level (instead of C level) it does not
                     # work. the only way around is to create a raw socket of type UDP and leave the IP header
                     # out when sending/building the packet.
-                    sock_raw = None
+                    # sock_raw = None
 
-                    try:
+                    # try:
                         # if platform.system() == "Darwin":
                         #     # Assuming IPv4 packet for now. Move pointer forward
                         #     inner_packet = rw_data[payload_start_index + IPV4_HEADER_LEN_BYTES:]
                         #     sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP)
                         # else:
                         #     sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-                        sock_raw = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-                        # sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-                    except socket.error as msg:
-                        logger.error("Socket could not be created. Error Code : {}", msg)
-                        sys.exit()
+                        # sock_raw = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+                    # except socket.error as msg:
+                    #     logger.error("Socket could not be created. Error Code : {}", msg)
+                    #     sys.exit()
 
                     bearing = self._get_packet_bearing(inner_packet)
                     logger.info("End of Chain. Sending packet to %s %s", bearing['d_addr'], bearing['d_port'])
-                    sock_raw.sendto(inner_packet, (bearing['d_addr'],
+                    self.sock_raw.sendto(inner_packet[28:], (bearing['d_addr'],
                                                    bearing['d_port']))
 
             # end processing as Service Index reaches zero (SI = 0)

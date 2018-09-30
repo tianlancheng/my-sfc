@@ -462,7 +462,7 @@ class NfqClassifier(metaclass=Singleton):
         """
 
         try:
-            logger.info("dd:receive a packet")
+            print("dd:receive a packet")
             in_pckt_queue.put_nowait(packet)
             packet.drop()
             sfc_globals.processed_packets += 1

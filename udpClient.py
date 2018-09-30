@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-：
+#-*- coding: utf-8 -*-：
 import socket
 BUFSIZE = 1024
 client = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)

@@ -45,9 +45,10 @@ def login():
 
 @app.route('/api/user/getUser',methods=['GET'])
 def getUser():
-    id = request.args.get('id');
+    # id = request.args.get('id');
     user_set = mongo.db.user_set
-    user = user_set.find_one({'_id':ObjectId(id)})
+    # user = user_set.find_one({'_id':ObjectId(id)})
+    user = user_set.find_one({'username':'admin'})
     if user:
       user['id'] = str(user['_id'])
       user.pop('_id')
@@ -147,6 +148,7 @@ def get_sfs():
   for sf in sfs:
     instances=list(sf_instance_set.find({'sfId':sf['_id']}))
     sf['instances'] = instances
+    sf['id'] = sf['_id']
   return jsonify(status=200, msg='success', data=sfs), 200
 
 
