@@ -1,0 +1,14 @@
+1. swarm udp test
+docker network create -d overlay sfc
+
+1)
+docker service create --replicas 1 --network sfc --name ingress -p 6000:6000/udp client python3 ingress.py
+docker service create --replicas 2 --network sfc --endpoint-mode dnsrr --name fw1 sff-swarm
+
+2)
+docker service create --replicas 2 --network sfc --endpoint-mode dnsrr --name fw1 sff-swarm fw2
+docker service create --replicas 1 --network sfc --endpoint-mode dnsrr --name fw2 sff-swarm
+
+
+
+iperf -u -c 192.168.43.128 -b 10M -t 30 -p 6000 -l 64

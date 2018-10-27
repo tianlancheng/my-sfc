@@ -67,8 +67,11 @@ class SfcGlobals:
     credentials) for the locally running sfc_agent.
     """
     sf_id = ""
-    instance_id = ""
+    instanceId = ""
+    policy = "RoundRobin" #TaskAware
+    sff_received_packets=0
     next_hops={}
+    max_size=1000
 
     sff_os = "ODL"
     my_sff_name = None
@@ -92,6 +95,8 @@ class SfcGlobals:
     odl_locator = LOCAL_ODL_LOCATOR
     odl_credentials = ('admin', 'admin')
 
+    qsize = 0
+    index = 0
     processed_packets = 0
     not_processed_packets = 0
     dropped_packets = 0
@@ -108,18 +113,30 @@ class SfcGlobals:
 
     def set_sf_id(self, sf_id):
         self.sf_id = sf_id
-    
-    def get_instance_id(self):
-        return self.instance_id
 
-    def set_instance_id(self, instance_id):
-        self.instance_id = instance_id
+    def get_instance_id(self):
+        return self.instanceId
+
+    def set_instance_id(self, instanceId):
+        self.instanceId = instanceId
+
+    def get_policy(self):
+        return self.policy
+
+    def set_policy(self, policy):
+        self.policy = policy
 
     def get_next_hops(self):
         return self.next_hops
 
     def set_next_hops(self, next_hops):
         self.next_hops = next_hops
+
+    def get_max_size(self):
+        return self.max_size
+
+    def set_max_size(self, max_size):
+        self.max_size= int(max_size)
 
     def get_path(self):
         return self.path

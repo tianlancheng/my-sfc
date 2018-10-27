@@ -109,7 +109,7 @@ class BasicService(object):
         self.service_type = None
         self.service_name = None
 
-        self.packet_queue = queue.Queue()
+        self.packet_queue = queue.Queue(maxsize=10000)
 
         self.sending_thread = Thread(target=self.read_queue)
         self.sending_thread.daemon = True
@@ -225,7 +225,7 @@ class BasicService(object):
             logger.info(msg)
             logger.exception(msg)
 
-        # sfc_globals.sff_queued_packets += 1
+        sfc_globals.sff_queued_packets += 1
 
     def process_datagram(self, data, addr):
         """

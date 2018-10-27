@@ -4,9 +4,7 @@ import os
 import sys
 import signal
 import logging
-import argparse
 import requests
-import netifaces
 import json
 import socket
 import time
@@ -20,8 +18,6 @@ import sfc  # noqa
 __package__ = 'sfc'
 
 
-from sfc.common import classifier
-from sfc.cli import xe_cli, xr_cli, ovs_cli
 from sfc.common import sfc_globals as _sfc_globals
 from sfc.common.launcher import start_sff
 
@@ -86,7 +82,7 @@ def start(sffname):
 # python3 sfc/sfc_agent.py --odl-ip-port 192.168.43.126:8080 --sf-id 1 --instance-id 1
 if __name__ == "__main__":
     if len(sys.argv) == 2:
-        sfc_globals.set_next_hops({'ip':sys.argv[1],'port':6001})
+        sfc_globals.set_next_hops({'ip':sys.argv[1],'port':6000})
     else:
         sfc_globals.set_next_hops(None)
     

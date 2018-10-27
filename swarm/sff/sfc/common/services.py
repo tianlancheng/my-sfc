@@ -470,22 +470,12 @@ class MySffServer(BasicService):
         self._decode_headers(data)
 
         sfc_globals.sff_processed_packets += 1
-        # logger.info('*******(mysff server) received packets "%d"', sfc_globals.received_packets)
-        # if(addr[0] == '127.0.0.1' and addr[1] == 6001):
-        #     # Lookup what to do with the packet based on Service Path Identifier
-        #     next_hop = self._lookup_next_sf(self.server_base_values.service_path,
-        #                                     self.server_base_values.service_index)
-        #     sfc_globals.sf_processed_packets += 1
-        # else:
-        #     next_hop = {'ip':'127.0.0.1','port':6001}
-
-        # if next_hop == None:
-        #     logger.error("not find an available next hop")
-        #     return rw_data, address
         next_hop = sfc_globals.get_next_hops()
 
         if self.server_base_values.service_index<0:
             logger.error("hops over 255")
+            rw_data.__init__()
+            data = ""
             return rw_data, address
 
         if nsh_decode.is_data_message(data):
@@ -497,17 +487,7 @@ class MySffServer(BasicService):
                 self.transport.sendto(rw_data, address)
 
             # send packet to its original destination
-            elif self.server_base_values.service_index:
-                # logger.info("%s: End of path", self.service_type)
-                # logger.debug("%s: Packet dump: %s", self.service_type, binascii.hexlify(rw_data))
-                # logger.debug('%s: service index end up as: %d', self.service_type,
-                #             self.server_base_values.service_index)
-
-                # Remove all SFC headers, leave only original packet
-                # if sfc_globals.NSH_TYPE_3 == sfc_globals.get_NSH_type():
-                #     payload_start_index = PAYLOAD_START_INDEX_NSH_TYPE3
-                # else:
-                #     payload_start_index = PAYLOAD_START_INDEX_NSH_TYPE1
+            else:
                 if self.server_base_values.next_protocol == NSH_NEXT_PROTO_IPV4:
                     payload_start_index = PAYLOAD_START_INDEX_NSH_TYPE1
                 elif self.server_base_values.next_protocol == NSH_NEXT_PROTO_ETH:
@@ -519,48 +499,11 @@ class MySffServer(BasicService):
                 inner_packet = rw_data[payload_start_index:]
 
                 if inner_packet:
-                    # euid = os.geteuid()
-                    # if euid != 0:
-                    #     print("Script not started as root. Running sudo...")
-                    #     args = ['sudo', sys.executable] + sys.argv + [os.environ]
-                    #     # the next line replaces the currently-running process with the sudo
-                    #     os.execlpe('sudo', *args)
-
-                    # Reinaldo note:
-                    # Unfortunately it has to be this way. Python has poor raw socket support in
-                    # MacOS.  What happens is that MacoS will _always_ include the IP header unless you use
-                    # socket option IP_HDRINCL
-                    # https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man4/ip.4.html
-                    #
-                    # But if you try to set this option at the Python level (instead of C level) it does not
-                    # work. the only way around is to create a raw socket of type UDP and leave the IP header
-                    # out when sending/building the packet.
-                    # sock_raw = None
-
-                    # try:
-                        # if platform.system() == "Darwin":
-                        #     # Assuming IPv4 packet for now. Move pointer forward
-                        #     inner_packet = rw_data[payload_start_index + IPV4_HEADER_LEN_BYTES:]
-                        #     sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP)
-                        # else:
-                        #     sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-                        # sock_raw = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-                    # except socket.error as msg:
-                    #     logger.error("Socket could not be created. Error Code : {}", msg)
-                    #     sys.exit()
-
                     bearing = self._get_packet_bearing(inner_packet)
                     logger.info("End of Chain. Sending packet to %s %s", bearing['d_addr'], bearing['d_port'])
-                    self.sock_raw.sendto(inner_packet[28:], (bearing['d_addr'],
-                                                   bearing['d_port']))
+                    self.sock_raw.sendto(inner_packet, (bearing['d_addr'],bearing['d_port']))
 
-            # end processing as Service Index reaches zero (SI = 0)
-            else:
-                logger.error("%s: Loop Detected", self.service_type)
-                logger.error("%s: Packet dump: %s", self.service_type, binascii.hexlify(rw_data))
 
-                rw_data.__init__()
-                data = ""
 
         elif nsh_decode.is_trace_message(data):
             # Have to differentiate between no SPID and End of path

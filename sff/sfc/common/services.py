@@ -109,7 +109,7 @@ class BasicService(object):
         self.service_type = None
         self.service_name = None
 
-        self.packet_queue = queue.Queue()
+        self.packet_queue = queue.Queue(maxsize=10000)
 
         self.sending_thread = Thread(target=self.read_queue)
         self.sending_thread.daemon = True
@@ -481,10 +481,14 @@ class MySffServer(BasicService):
 
         if next_hop == None:
             logger.error("not find an available next hop")
+            rw_data.__init__()
+            data = ""
             return rw_data, address
 
         if self.server_base_values.service_index<0:
             logger.error("hops over 255")
+            rw_data.__init__()
+            data = ""
             return rw_data, address
 
         if nsh_decode.is_data_message(data):
@@ -496,7 +500,7 @@ class MySffServer(BasicService):
                 self.transport.sendto(rw_data, address)
 
             # send packet to its original destination
-            elif self.server_base_values.service_index:
+            else:
                 # logger.info("%s: End of path", self.service_type)
                 # logger.debug("%s: Packet dump: %s", self.service_type, binascii.hexlify(rw_data))
                 # logger.debug('%s: service index end up as: %d', self.service_type,
@@ -553,13 +557,6 @@ class MySffServer(BasicService):
                     self.sock_raw.sendto(inner_packet[28:], (bearing['d_addr'],
                                                    bearing['d_port']))
 
-            # end processing as Service Index reaches zero (SI = 0)
-            else:
-                logger.error("%s: Loop Detected", self.service_type)
-                logger.error("%s: Packet dump: %s", self.service_type, binascii.hexlify(rw_data))
-
-                rw_data.__init__()
-                data = ""
 
         elif nsh_decode.is_trace_message(data):
             # Have to differentiate between no SPID and End of path

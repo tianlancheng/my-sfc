@@ -343,7 +343,6 @@ class NfqClassifier(metaclass=Singleton):
         """
 
         mark = packet.get_mark()
-        logger.info('forward_packet: %s, marked "%d"', packet, mark)
         rsp_id, ipv = self._decompose_packet_mark(mark)
         
 
@@ -373,7 +372,7 @@ class NfqClassifier(metaclass=Singleton):
         
         # fwd_to = {'ip':instances[index]['ip'],'port':6000,'starting-index':255}
 
-        fwd_to = {'ip':'192.168.43.165','port':6000,'starting-index':255, 'transport-type': 'service-locator:vxlan-gpe',}
+        fwd_to = {'ip':'192.168.33.129','port':6000,'starting-index':255, 'transport-type': 'service-locator:vxlan-gpe',}
 
         next_protocol = ipv_2_next_protocol[ipv]
         
@@ -431,12 +430,14 @@ class NfqClassifier(metaclass=Singleton):
         else:
             nsh_header = build_nsh_header(encap_header, base_header, ctx_header)
             logger.debug('NSH type 1 created')
+
+        print(nsh_header)
         nsh_packet = nsh_header + packet.get_payload()
         
         try:
-            logger.info('addr: "%s"  port:"%s"', fwd_to['ip'], fwd_to['port'])
-            logger.debug('* Sending packet to IP: "%s", port: "%d", nsp: "%d", nsi: "%d", next_protocol(base_header): "%s", next_protocol(encap_header): "%s"',
-                fwd_to['ip'], fwd_to['port'], rsp_id, fwd_to['starting-index'], next_protocol, VXLAN_NEXT_PROTO_NSH)
+            # logger.info('addr: "%s"  port:"%s"', fwd_to['ip'], fwd_to['port'])
+            # logger.debug('* Sending packet to IP: "%s", port: "%d", nsp: "%d", nsi: "%d", next_protocol(base_header): "%s", next_protocol(encap_header): "%s"',
+            #     fwd_to['ip'], fwd_to['port'], rsp_id, fwd_to['starting-index'], next_protocol, VXLAN_NEXT_PROTO_NSH)
         
             self.fwd_socket.sendto(nsh_packet, (fwd_to['ip'], fwd_to['port']))
 
@@ -445,7 +446,7 @@ class NfqClassifier(metaclass=Singleton):
             #         sfc_globals.processed_packets, sfc_globals.sent_packets,
             #         sfc_globals.sf_queued_packets, sfc_globals.sff_queued_packets,
             #         sfc_globals.sf_processed_packets, sfc_globals.sff_processed_packets)
-            sleep(0.00000001)  # not nice but this sending process needs to be slow down
+            #sleep(0.00000001)  # not nice but this sending process needs to be slow down
         except Exception as e:  
             # msg = 'Excepton {} , {}'.format(e.message, e.args)
             logger.info(e)
@@ -462,7 +463,7 @@ class NfqClassifier(metaclass=Singleton):
         """
 
         try:
-            print("dd:receive a packet")
+            # print("dd:receive a packet")
             in_pckt_queue.put_nowait(packet)
             packet.drop()
             sfc_globals.processed_packets += 1

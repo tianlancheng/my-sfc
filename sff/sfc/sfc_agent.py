@@ -4,9 +4,7 @@ import os
 import sys
 import signal
 import logging
-import argparse
 import requests
-import netifaces
 import json
 import socket
 import time
@@ -20,8 +18,6 @@ import sfc  # noqa
 __package__ = 'sfc'
 
 
-from sfc.common import classifier
-from sfc.cli import xe_cli, xr_cli, ovs_cli
 from sfc.common import sfc_globals as _sfc_globals
 from sfc.common.launcher import start_sff
 
@@ -93,7 +89,7 @@ if __name__ == "__main__":
         logger.error('please input odl-ip-port sf-id instance-id')
         exit(2)
     
-    logger.info('ODL locator: %s', sfc_globals.get_odl_locator())
+    logger.info('server: %s', sfc_globals.get_odl_locator())
     logger.info('sfId: %s', sfc_globals.get_sf_id())
     logger.info('instanceId: %s', sfc_globals.get_instance_id())
 

@@ -92,9 +92,13 @@ class MyVxlanGpeNshIpClient(MyNshBaseClass):
         packet = build_nsh_header(self.encapsulate_header_values,
                                   self.base_header_values,
                                   self.ctx_header_values)
-        udp_inner_packet = build_udp_packet(self.inner_header.inner_src_ip, self.inner_header.inner_dest_ip,
-                                            int(self.inner_header.inner_src_port),
-                                            int(self.inner_header.inner_dest_port), "test".encode('utf-8'))
+
+        print(packet)
+        # udp_inner_packet = build_udp_packet(self.inner_header.inner_src_ip, self.inner_dest_ip,
+        #                                     int(self.inner_header.inner_src_port),
+        #                                     int(self.inner_dest_port), "test".encode('utf-8'))
+        udp_inner_packet = build_udp_packet('192.168.33.128', '192.168.33.130', 6000, 5001, "test".encode('utf-8'))
+        print(udp_inner_packet)
         logger.info("Sending %s packet to SFF: %s", self.encapsulate_type, (self.remote_sff_ip, self.remote_sff_port))
         logger.debug("Packet dump: %s", binascii.hexlify(packet))
         # Send the packet
@@ -433,14 +437,14 @@ def main(argv):
     local_port = 4790
     remote_sff_ip = "127.0.0.1"
     local_ip = "0.0.0.0"
-    sfp_id = 0x000001
-    sfp_index = 3
+    sfp_id = 1
+    sfp_index = 255
     trace_req = False
     num_trace_hops = 254
-    inner_src_ip = "192.168.0.1"
-    inner_dest_ip = "192.168.0.2"
-    inner_src_port = 10000
-    inner_dest_port = 20000
+    inner_src_ip = "192.168.33.129"
+    inner_dest_ip = "192.168.33.130"
+    inner_src_port = 6000
+    inner_dest_port = 5001
     encapsulate = 'gpe-nsh-ipv4'  # make vxlan-gpe encapsulation default
     ctx1 = ctx2 = ctx3 = ctx4 = 0
 
@@ -606,6 +610,7 @@ def main(argv):
 
             udpclient = MyVxlanGpeNshIpClient(loop, vxlan_header_values, base_header_values,
                                               ctx_values, remote_sff_ip, int(remote_sff_port), inner_dest_ip, int(inner_dest_port))
+
             start_client(loop, (local_ip, local_port), (remote_sff_ip, remote_sff_port), udpclient)
 
         elif encapsulate == 'gre-nsh-ethernet':

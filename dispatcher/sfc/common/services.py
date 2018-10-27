@@ -14,6 +14,7 @@ import binascii
 import ipaddress
 import platform
 import queue
+import random
 
 from threading import Thread
 
@@ -109,7 +110,7 @@ class BasicService(object):
         self.service_type = None
         self.service_name = None
 
-        self.packet_queue = queue.Queue()
+        self.packet_queue = queue.Queue(maxsize=sfc_globals.get_max_size())
 
         self.sending_thread = Thread(target=self.read_queue)
         self.sending_thread.daemon = True
@@ -219,18 +220,12 @@ class BasicService(object):
         # logger.info('%s service received packet from %s:', self.service_type, addr)
         # logger.debug('%s %s', addr, binascii.hexlify(data))
         packet = (data, addr)
+        sfc_globals.sff_received_packets += 1 
         try:
             self.packet_queue.put_nowait(packet)
         except:
-            msg = 'Putting into queue failed'
-            logger.info(msg)
-            logger.exception(msg)
-
-        if self.service_type == 'SFF Server':
-            sfc_globals.sff_queued_packets += 1  
-        else:
-            sfc_globals.sf_queued_packets += 1
-            
+            # logger.error('Putting into queue failed')
+            sfc_globals.sff_queued_packets += 1   
 
     def process_datagram(self, data, addr):
         """
@@ -242,7 +237,7 @@ class BasicService(object):
         :type addr: tuple
 
         """
-        logger.info('%s service received packet from %s:', self.service_type, addr)
+        # logger.info('%s service received packet from %s:', self.service_type, addr)
         # logger.debug('%s %s', addr, binascii.hexlify(data))
         rw_data = self._process_incoming_packet(data, addr)
         if nsh_decode.is_data_message(data):
@@ -273,6 +268,7 @@ class BasicService(object):
                 packet = self.packet_queue.get(block=True)
                 self.process_datagram(data=packet[0], addr=packet[1])
                 self.packet_queue.task_done()
+                sfc_globals.qsize = self.packet_queue.qsize()
         except:
             msg = 'Reading from queue failed'
             logger.info(msg)
@@ -367,9 +363,24 @@ class MySffServer(BasicService):
         super(MySffServer, self).__init__(loop)
 
         self.service_type = 'SFF Server'
+        self.sock_raw = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+        self.index=0
 
-    @staticmethod
-    def _lookup_next_sf(service_path, service_index):
+    
+    def _random_index(self, rates):
+        start = 0
+        index = 0
+        randnum = random.randint(1, sum(rates))
+
+        for index, scope in enumerate(rates):
+            start += scope
+            if randnum <= start:
+                break
+        return index
+
+
+    # @staticmethod
+    def _lookup_next_sf(self, service_path, service_index):
         """
         Retrieve next SF locator info from SfcGlobals
 
@@ -386,30 +397,37 @@ class MySffServer(BasicService):
         # First we determine the list of SFs in the received packet based on
         # SPI value extracted from packet
         try:
-            # local_data_plane_path = sfc_globals.get_data_plane_path()
-            # next_hop = local_data_plane_path[service_path][service_index]
             next_hops = sfc_globals.get_next_hops()
-            # logger.info('next_hops:'+str(service_path))
-            # logger.info(next_hops)
-            next_instances = next_hops[str(service_path)]    
+            next_instances = next_hops[str(service_path)]
             if next_instances == None:
                 return SERVICE_HOP_INVALID
 
-            minRemain = 10000000
-            index = -1
-            for i in range(0,len(next_instances)):
-                if next_instances[i]['remainPackets'] < minRemain:
-                    minRemain = next_instances[i]['remainPackets']
-                    index =i
+            if len(next_instances) < 1:
+                return None
 
-            if index != -1:
+            # if sfc_globals.get_policy() == "TaskAware":
+            #     minRemain = 10000000
+            #     index = -1
+            #     for i in range(0,len(next_instances)):
+            #         if next_instances[i]['qsize'] < minRemain:
+            #             minRemain = next_instances[i]['qsize']
+            #             index =i
+            #     if index != -1:
+            #         next_hop = {'ip':next_instances[index]['ip'],'port':6000}
+            #         # next_instances[index]['qsize'] = next_instances[index]['qsize']+1
+            #     logger.info("TaskAware:"+str(index))
+            if sfc_globals.get_policy() == "ResourceAware":
+                rates = []
+                for instance in next_instances:
+                    rates.append(float(instance['cpu'])*100)
+                index = self._random_index(rates)
                 next_hop = {'ip':next_instances[index]['ip'],'port':6000}
-                next_instances[index]['remainPackets'] = next_instances[index]['remainPackets']+1
+            else:
+                self.index = (self.index+1)%(len(next_instances))
+                next_hop = {'ip':next_instances[self.index]['ip'],'port':6000}
             
         except KeyError:
-            # logger.error('Could not determine next service hop. SP: %d, SI: %d',
-            #             service_path, service_index)
-            pass
+            logger.error('Could not determine next service hop.')
         return next_hop
 
     def _get_packet_bearing(self, packet):
@@ -461,22 +479,31 @@ class MySffServer(BasicService):
         :type addr: tuple (str, int)
 
         """
-        logger.info("%s: mysff Processing packet from: %s", self.service_type, addr)
+        # logger.info("%s: mysff Processing packet from: %s", self.service_type, addr)
         address = ()
         rw_data = bytearray(data)
         self._decode_headers(data)
 
         sfc_globals.sff_processed_packets += 1
-        # logger.info('*******(mysff server) received packets "%d"', sfc_globals.received_packets)
+        # logger.info('*******(mysff server) received packets "%d"',  sfc_globals.sff_received_packets)
 
         # Lookup what to do with the packet based on Service Path Identifier
-        next_hop = self._lookup_next_sf(self.server_base_values.service_path,
-                                        self.server_base_values.service_index)
+        if self.server_base_values.service_path == 0:
+            next_hop = SERVICE_HOP_INVALID
+        else:
+            next_hop = self._lookup_next_sf(self.server_base_values.service_path,self.server_base_values.service_index)
         sfc_globals.sf_processed_packets += 1
-
 
         if next_hop == None:
             logger.error("not find an available next hop")
+            rw_data.__init__()
+            data = ""
+            return rw_data, address
+
+        if self.server_base_values.service_index<0:
+            logger.error("hops over 255")
+            rw_data.__init__()
+            data = ""
             return rw_data, address
 
 
@@ -484,22 +511,10 @@ class MySffServer(BasicService):
             # send the packet to the next SFF based on address
             if next_hop != SERVICE_HOP_INVALID:
                 address = next_hop['ip'], next_hop['port']
-                logger.info("%s: Sending packets to: %s", self.service_type, address)
-
+                # logger.info("%s: Sending packets to: %s", self.service_type, address)
                 self.transport.sendto(rw_data, address)
-
             # send packet to its original destination
-            elif self.server_base_values.service_index:
-                # logger.info("%s: End of path", self.service_type)
-                # logger.debug("%s: Packet dump: %s", self.service_type, binascii.hexlify(rw_data))
-                # logger.debug('%s: service index end up as: %d', self.service_type,
-                #             self.server_base_values.service_index)
-
-                # Remove all SFC headers, leave only original packet
-                # if sfc_globals.NSH_TYPE_3 == sfc_globals.get_NSH_type():
-                #     payload_start_index = PAYLOAD_START_INDEX_NSH_TYPE3
-                # else:
-                #     payload_start_index = PAYLOAD_START_INDEX_NSH_TYPE1
+            else:
                 if self.server_base_values.next_protocol == NSH_NEXT_PROTO_IPV4:
                     payload_start_index = PAYLOAD_START_INDEX_NSH_TYPE1
                 elif self.server_base_values.next_protocol == NSH_NEXT_PROTO_ETH:
@@ -510,48 +525,10 @@ class MySffServer(BasicService):
 
                 inner_packet = rw_data[payload_start_index:]
 
-                if inner_packet:
-                    euid = os.geteuid()
-                    if euid != 0:
-                        print("Script not started as root. Running sudo...")
-                        args = ['sudo', sys.executable] + sys.argv + [os.environ]
-                        # the next line replaces the currently-running process with the sudo
-                        os.execlpe('sudo', *args)
-
-                    # Reinaldo note:
-                    # Unfortunately it has to be this way. Python has poor raw socket support in
-                    # MacOS.  What happens is that MacoS will _always_ include the IP header unless you use
-                    # socket option IP_HDRINCL
-                    # https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man4/ip.4.html
-                    #
-                    # But if you try to set this option at the Python level (instead of C level) it does not
-                    # work. the only way around is to create a raw socket of type UDP and leave the IP header
-                    # out when sending/building the packet.
-                    sock_raw = None
-
-                    try:
-                        if platform.system() == "Darwin":
-                            # Assuming IPv4 packet for now. Move pointer forward
-                            inner_packet = rw_data[payload_start_index + IPV4_HEADER_LEN_BYTES:]
-                            sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP)
-                        else:
-                            sock_raw = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
-                    except socket.error as msg:
-                        logger.error("Socket could not be created. Error Code : {}", msg)
-                        sys.exit()
-
+                if inner_packet: 
                     bearing = self._get_packet_bearing(inner_packet)
-                    logger.info("End of Chain. Sending packet to %s %s", bearing['d_addr'], bearing['d_port'])
-                    sock_raw.sendto(inner_packet, (bearing['d_addr'],
-                                                   bearing['d_port']))
-
-            # end processing as Service Index reaches zero (SI = 0)
-            else:
-                logger.error("%s: Loop Detected", self.service_type)
-                logger.error("%s: Packet dump: %s", self.service_type, binascii.hexlify(rw_data))
-
-                rw_data.__init__()
-                data = ""
+                    # logger.info("End of Chain. Sending packet to %s %s", bearing['d_addr'], bearing['d_port'])
+                    self.sock_raw.sendto(inner_packet[28:], (bearing['d_addr'], bearing['d_port']))
 
         elif nsh_decode.is_trace_message(data):
             # Have to differentiate between no SPID and End of path
