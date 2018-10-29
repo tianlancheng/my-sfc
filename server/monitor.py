@@ -11,12 +11,20 @@ db = mongo.mysfc
 config.load_kube_config()
 v1=client.CoreV1Api()
 
+scale_time={}
+
 def scale_up(sfId):
 	sf = db.sf_set.find_one({'_id':sfId})
 	if not sf.get('autoscale'):
 		return
 	if db.sf_instance_set.find({'sfId':sfId}).count() >= 5:
 		return
+
+	t = time.time()
+	if scale_time.get(sfId):
+		if t - scale_time.get(sfId) < 10:
+			return
+	scale_time[sfId] = t
 
 	instanceId = str(uuid.uuid1()).replace('-', '')[:12]
 	record={
@@ -42,7 +50,7 @@ def scale_up(sfId):
 		if sf['next'] == None:
 			instances = None
 		else:
-			instances = list(sf_instance_set.find({'sfId': sf['next'], 'status':'running'}))
+			instances = list(db.sf_instance_set.find({'sfId': sf['next'], 'status':'running'}))
 		next_hops[sf['sfcId']] = instances
 
 	args = {
@@ -90,9 +98,11 @@ def check():
 					elif item['avg_qsize'] < 50:
 						print('scale down')
 						scale_down()
+					else:
+						print()
 		except Exception as e:
 			print(e)
-		time.sleep(2)
+		time.sleep(3)
 
 
 if __name__ == '__main__':

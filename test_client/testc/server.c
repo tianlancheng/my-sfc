@@ -124,7 +124,7 @@ int main(int argc,char* argv[])
             // fprintf(fp,"%ld  %ld  %ld\n", t_data -> seq, localtime, t_data -> sendtime);//输出到txt文件方便统计
             if(id < 0){
                 // report();
-                printf("-1\n");
+                // printf("-1\n");
             }else{
                 isReport = 0;
                 if(firstTime == 0)

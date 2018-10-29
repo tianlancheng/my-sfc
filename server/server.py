@@ -88,6 +88,7 @@ def add_sf():
 @app.route('/api/addInstance',methods=['POST'])
 def add_instance():
   data = json.loads(request.get_data().decode('utf-8'));
+  print(data)
   if not mongo.db.sf_set.find_one({'_id':data['_id']}):
     return jsonify(status=400, msg='no this sf', data=None), 200
   start_sf_pod(data)
@@ -140,7 +141,7 @@ def start_sf_pod(data):
     if sf['next'] == None:
       instances = None
     else:
-      instances = list(sf_instance_set.find({'sfId': sf['next'], 'status':'running'}))
+      instances = list(mongo.db.sf_instance_set.find({'sfId': sf['next'], 'status':'running'}))
     next_hops[sf['sfcId']] = instances
 
   args = {
@@ -451,9 +452,9 @@ if __name__ == '__main__':
             'description': 'forward data',
             'autoscale':False,
             'type': 'DaemonSet',
-            'cpu': '0.2',
+            'cpu': '0.3',
             'memory': '128Mi',
-            'policy': 'ResourceAware', #ResourceAware/RoundRobin
+            'policy': 'RoundRobin', #ResourceAware/RoundRobin
             'pic': '/assets/static/pic/f5.png'
             }
     sf_set.update({'_id':'dispatcher'},{"$set":data},upsert=True)
