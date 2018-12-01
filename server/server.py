@@ -108,8 +108,8 @@ def scale_down():
       minRemain = instance['qsize']
       instanceId = instance['_id']
   if instanceId:
-    # sf_instance_set.update({'_id': selectId},{'$set':{'stop': True}})
-    sf_instance_set.remove({'_id': instanceId})
+    # sf_instance_set.remove({'_id': instanceId})
+    sf_instance_set.update({'_id': instanceId},{'$set':{'status':'stopping','stop':True}})
     try:
       v1.delete_namespaced_pod(name=data['_id']+'-'+instanceId, namespace="default", body=client.V1DeleteOptions())
     except:
@@ -207,6 +207,8 @@ def get_sfs_all():
   sf_set = mongo.db.sf_set
   sfs = list(sf_set.find())
   sf_instance_set = mongo.db.sf_instance_set
+  t = time.time()-10
+  sf_instance_set.remove({'time':{'$lt':t},'stop':True})
   for sf in sfs:
     instances=list(sf_instance_set.find({'sfId':sf['_id']}))
     sf['instances'] = instances
@@ -389,7 +391,7 @@ def heartbeat():
       instances = list(sf_instance_set.find({'sfId': sfc['start_sf'], 'status':'running'}))
       next_hops[sfc['_id']] = instances
   else:
-    sf_instance_set.update({"_id": data['instanceId']},{"$set":data})
+    sf_instance_set.update({"_id": data['instanceId'],'stop':False},{"$set":data})
     sfs = list(mongo.db.sfc_set.find({'sfId':data['sfId']}))
     for sf in sfs:
       if sf['next'] == None:

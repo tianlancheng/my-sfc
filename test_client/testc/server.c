@@ -121,6 +121,7 @@ int main(int argc,char* argv[])
             gettimeofday(&recvtime,0);
             localtime = 1000000*recvtime.tv_sec + recvtime.tv_usec;
             sendtime = (long)1000000*ntohl(t_data->tv_sec) + ntohl(t_data->tv_usec);
+            printf("%ld  %ld\n", id, sendtime);
             // fprintf(fp,"%ld  %ld  %ld\n", t_data -> seq, localtime, t_data -> sendtime);//输出到txt文件方便统计
             if(id < 0){
                 // report();

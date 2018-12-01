@@ -82,8 +82,34 @@ def scale_up(sfId):
 	v1.create_namespaced_pod(namespace="default",body=pod)
 
 
-def scale_down():
-	pass
+def scale_down(sfId):
+	sf = db.sf_set.find_one({'_id':sfId})
+	if not sf.get('autoscale'):
+		return
+	if db.sf_instance_set.find({'sfId':sfId}).count() <= 1:
+		return
+
+	t = time.time()
+	if scale_time.get(sfId):
+		if t - scale_time.get(sfId) < 10:
+			return
+	scale_time[sfId] = t
+
+	sf_instance_set = db.sf_instance_set
+	minRemain = 1000000000
+	instanceId = ''
+	instances = sf_instance_set.find({'sfId': sfId})
+	for instance in instances: 
+		if 'qsize' in instance and instance.get('qsize') < minRemain:
+			minRemain = instance['qsize']
+			instanceId = instance['_id']
+	if instanceId:
+		# sf_instance_set.remove({'_id': instanceId})
+		sf_instance_set.update({'_id': instanceId},{'$set':{'status':'stopping','stop':True}})
+	try:
+		v1.delete_namespaced_pod(name=sfId+'-'+instanceId, namespace="default", body=client.V1DeleteOptions())
+	except:
+		print('delete pod error!')
 
 def check():
 	while(True):
@@ -97,7 +123,7 @@ def check():
 						scale_up(item['_id'])
 					elif item['avg_qsize'] < 50:
 						print('scale down')
-						scale_down()
+						scale_down(item['_id'])
 					else:
 						print()
 		except Exception as e:
