@@ -110,6 +110,7 @@ def scale_down():
   if instanceId:
     # sf_instance_set.remove({'_id': instanceId})
     sf_instance_set.update({'_id': instanceId},{'$set':{'status':'stopping','stop':True}})
+    mongo.db.sfc_len_set.remove({'instanceId':instanceId})
     try:
       v1.delete_namespaced_pod(name=data['_id']+'-'+instanceId, namespace="default", body=client.V1DeleteOptions())
     except:
@@ -171,6 +172,7 @@ def start_sf_pod(data):
   spec=client.V1PodSpec(containers=containers)
   pod.spec = spec
   v1.create_namespaced_pod(namespace="default",body=pod)
+
 
 @app.route('/api/SF/<_id>',methods=['DELETE'])
 def delete_sf(_id):
@@ -317,6 +319,7 @@ def add_sfc():
     for item in maxItem:
       sfcId = item['_id']+1
     sf_array = []
+    simple_array = []
     records = []
     for i in range(0,len(SFs)):
       if i<len(SFs)-1:
@@ -331,7 +334,8 @@ def add_sfc():
       }
       records.append(record)
       sf_array.append(SFs[i])
-    sfc_def_set.insert({'_id':sfcId,'name':data['name'],'sfs':sf_array,'start_sf':sf_array[0]['_id']})
+      simple_array.append(SFs[i]['_id'])
+    sfc_def_set.insert({'_id':sfcId,'name':data['name'],'sfs':sf_array,'simple_array':simple_array,'start_sf':sf_array[0]['_id']})
     sfc_set.insert_many(records)
   return jsonify(status=200, msg='success', data={'sfcId':sfcId}), 200
 
@@ -378,6 +382,9 @@ def heartbeat():
   t = time.time()
   data['time'] = t
   data['status'] = 'running'
+  hostIp=request.remote_addr
+  print('hostIp:'+hostIp)
+  data['hostIp'] = hostIp
   sf_instance_set = mongo.db.sf_instance_set
   
   next_hops={}
@@ -392,15 +399,45 @@ def heartbeat():
       next_hops[sfc['_id']] = instances
   else:
     sf_instance_set.update({"_id": data['instanceId'],'stop':False},{"$set":data})
+
+    if data['first'] == True:
+      sfc_items = mongo.db.sfc_set.find({'sfId': data['sfId']})
+      for sfc_item in sfc_items:
+        sfc_def = mongo.db.sfc_def_set.find_one({'_id':sfc_item['sfcId']})
+        array = sfc_def['simple_array']
+        length = len(array)
+        n = 0
+        print(array)
+        for i in range(length-1, -1, -1):
+          instances = sf_instance_set.find({'sfId':array[i], 'hostIp':hostIp})
+          flag = False
+          for instance in instances:
+            flag = True
+            mongo.db.sfc_len_set.update({'instanceId':instance['_id'],'sfcId':sfc_item['sfcId']},{'$set':{'len':n+1}},upsert=True)
+          if flag:
+            n = n + 1
+          else:
+            n = 0
+    
     sfs = list(mongo.db.sfc_set.find({'sfId':data['sfId']}))
     for sf in sfs:
       if sf['next'] == None:
         instances = None
       else:
         instances = list(sf_instance_set.find({'sfId': sf['next'], 'status':'running'}))
+#############################
+      if instances:
+        for instance in instances:
+          record = mongo.db.sfc_len_set.find_one({'instanceId':instance['_id'],'sfcId':sf['sfcId']})
+          if record:
+            instance['len'] = record['len']
+          else:
+            instance['len'] = 1
+#############################
       next_hops[sf['sfcId']] = instances
+      # print(next_hops)
   # print(next_hops)
-  return jsonify(status=200, msg='success', data=next_hops), 200
+  return jsonify(status=200, msg='success', data={'next_hops':next_hops,'hostIp':hostIp}), 200
 
 @socketio.on('connect', namespace='/socket/client')
 def client_connect():
@@ -443,20 +480,19 @@ def start_dispatcher_pod(data):
   daemonset = client.V1beta1DaemonSet(api_version='extensions/v1beta1',kind='DaemonSet',spec=daemonset_spec)
   daemonset.metadata=client.V1ObjectMeta(name='dispatcher',labels={'type':'dispatcher'})
   beta1.create_namespaced_daemon_set(namespace="default",body=daemonset)
-
   # mongo.db.sf_instance_set.insert(record)
 
 if __name__ == '__main__':
     sf_set = mongo.db.sf_set
     data = {'_id':'dispatcher',
             'remark':'dispatcher',
-            'image':'dispatcher:latest',
+            'image':'dispatcher2:latest',
             'description': 'forward data',
             'autoscale':False,
             'type': 'DaemonSet',
             'cpu': '0.3',
             'memory': '128Mi',
-            'policy': 'RoundRobin', #ResourceAware/RoundRobin
+            'policy': 'RoundRobin', #ResourceAware/RoundRobin/ShortestPath
             'pic': '/assets/static/pic/f5.png'
             }
     sf_set.update({'_id':'dispatcher'},{"$set":data},upsert=True)

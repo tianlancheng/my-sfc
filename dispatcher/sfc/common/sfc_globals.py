@@ -67,6 +67,7 @@ class SfcGlobals:
     credentials) for the locally running sfc_agent.
     """
     sf_id = ""
+    hostIp = ""
     instanceId = ""
     policy = "RoundRobin" #TaskAware
     sff_received_packets=0

@@ -49,7 +49,7 @@ def main(service_path, remote_ips, remote_port, inner_dest_ip, inner_dest_port):
        
 if __name__ == '__main__':
     service_path = 1
-    remote_ips = ['192.168.43.129','192.168.43.130']
+    remote_ips = ['192.168.43.129'] #'192.168.43.129',
     remote_port = 6000
     inner_dest_ip = '192.168.43.128'
     inner_dest_port = 9999

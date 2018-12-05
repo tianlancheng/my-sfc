@@ -44,7 +44,8 @@ def heartbeat(odl_ip_port):
     myname = socket.getfqdn(socket.gethostname(  ))
     myaddr = socket.gethostbyname(myname)
     logger.info(myname+' '+myaddr)
-    last_processed_packets = -1;
+    last_processed_packets = -1
+    first = True
     while(True):
         nowTime = time.time()
         receivedPackets = sfc_globals.sff_received_packets
@@ -61,14 +62,16 @@ def heartbeat(odl_ip_port):
             "ip": myaddr,
             "receivedPackets": receivedPackets,
             "qsize": sfc_globals.qsize,
-            "speed": speed
+            "speed": speed,
+            "first": first
         }
-        # logger.info(data)
         try:
             r=requests.post('http://'+odl_ip_port+'/api/heartbeat',data = json.dumps(data))
             r=r.json()
-            next_hops = r['data']
+            next_hops = r['data']['next_hops']
+            sfc_globals.hostIp=r['data']['hostIp']
             sfc_globals.set_next_hops(next_hops)
+            first = False
         except Exception as e:
             logger.error(e)
             logger.info('send error')

@@ -422,6 +422,17 @@ class MySffServer(BasicService):
                     rates.append(float(instance['cpu'])*100)
                 index = self._random_index(rates)
                 next_hop = {'ip':next_instances[index]['ip'],'port':6000}
+            elif sfc_globals.get_policy() == "ShortestPath":
+                index = 0
+                maxLen = -1
+                for i in range(0,len(next_instances)):
+                    if next_instances[i]['hostIp'] == sfc_globals.hostIp:
+                        index = i
+                        break
+                    if next_instances[i]['len'] > maxLen:
+                        maxLen = next_instances[i]['len']
+                        index = i
+                next_hop = {'ip':next_instances[index]['ip'],'port':6000}
             else:
                 self.index = (self.index+1)%(len(next_instances))
                 next_hop = {'ip':next_instances[self.index]['ip'],'port':6000}
